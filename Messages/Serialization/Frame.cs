@@ -1,93 +1,96 @@
 ﻿using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Storage.Streams;
 
-namespace Sand.Messages.Serialization
+namespace Sand.Messages.Serialization;
+
+internal class Frame
 {
-    internal class Frame
+    private const byte Magic = 123;
+    private const byte AckBit = 0x80;
+    private const byte TopicMask = 0x7F;
+
+    public Frame(Topic topic, Verb verb, IBuffer data)
     {
-        private const byte Magic = 123;
-        private const byte AckBit = 0x80;
-        private const byte TopicMask = 0x7F;
+        Topic = topic;
+        Verb = verb;
+        Data = data;
+    }
 
-        public Frame(Topic topic, Verb? verb, bool ack, IBuffer data)
+    public Topic Topic { get; }
+    public Verb Verb { get; }
+    public IBuffer Data { get; }
+
+    public static Frame Parse(IBuffer buffer)
+    {
+        var msg = DataReader.FromBuffer(buffer);
+
+        var magic = msg.ReadByte();
+        if (magic != Magic)
         {
-            Topic = topic;
-            Verb = verb;
-            Ack = ack;
-            Data = data;
+            throw new Exception("Invalid message: magic value = {magic}");
         }
 
-        public Topic Topic { get; }
-        public Verb? Verb { get; }
-        public bool Ack { get; }
-        public IBuffer Data { get; }
+        _ = msg.ReadByte(); // Unused and sometimes incorrect length
 
-        public static Frame Parse(IBuffer buffer)
+        var ackAndTopic = msg.ReadByte();
+        bool ack = (ackAndTopic & AckBit) == AckBit;
+        Topic topic = Topic.LookupTopic((byte)(ackAndTopic & TopicMask));
+        Verb verb = ack ? Verb.Ack : topic.LookupVerb(msg.ReadByte());
+
+        var data = msg.ReadBuffer(msg.UnconsumedBufferLength - 1);
+
+
+        uint checksum = 0;
+        var checksumReader = DataReader.FromBuffer(buffer);
+        while (checksumReader.UnconsumedBufferLength > 1)
         {
-            var msg = DataReader.FromBuffer(buffer);
-
-            var magic = msg.ReadByte();
-            if (magic != Magic)
-            {
-                throw new Exception("Invalid message: magic value = {magic}");
-            }
-
-            uint len = msg.ReadByte();
-            if (len != buffer.Length)
-            {
-                throw new Exception("Invalid message: real length = {buffer.Length} specified length = {len}");
-            }
-
-            var ackAndTopic = msg.ReadByte();
-            bool ack = (ackAndTopic & AckBit) == AckBit;
-            Topic topic = Topic.LookupTopic((byte)(ackAndTopic & TopicMask));
-
-            Verb? verb = null;
-            if (!ack)
-            {
-                verb = topic.LookupVerb(msg.ReadByte());
-            }
-
-            var data = msg.ReadBuffer(msg.UnconsumedBufferLength - 1);
-
-            _ = msg.ReadByte(); // checksum (ignored)
-
-            return new Frame(topic, verb, ack, data);
+            checksum += checksumReader.ReadByte();
+        }
+        byte expectedChecksum = checksumReader.ReadByte();
+        if ((byte)checksum != expectedChecksum)
+        {
+            throw new Exception($"Invalid checksum. Actual={checksum} Expected={expectedChecksum}");
         }
 
-        public IBuffer Serialize()
+        return new Frame(topic, verb, data);
+    }
+
+    public IBuffer Serialize()
+    {
+        // Calculate the message size
+        var messageSize = Data.Length + 4; /* magic, length, topic, checksum */
+        if (Verb != Verb.Ack)
         {
-            // Calculate the message size
-            var messageSize = Data.Length + 4; /* magic, length, topic, checksum */
-            if (Verb != null)
-            {
-                messageSize++;
-            }
-
-            // Write the message
-            DataWriter messageWriter = new();
-            messageWriter.WriteByte(Magic);
-            messageWriter.WriteByte((byte)messageSize);
-            messageWriter.WriteByte((byte)(Topic.Value | (Ack ? AckBit : 0)));
-            if (Verb != null)
-            {
-                messageWriter.WriteByte(Verb.Value);
-            }
-            messageWriter.WriteBuffer(Data);
-
-            // Calculate the message checksum
-            var message = messageWriter.DetachBuffer();
-            uint checksum = 0;
-            foreach (byte b in message.ToArray())
-            {
-                checksum += b;
-            }
-
-            // Write the message with the checksum
-            DataWriter checksumWriter = new();
-            checksumWriter.WriteBuffer(message);
-            checksumWriter.WriteByte((byte)checksum);
-            return checksumWriter.DetachBuffer();
+            messageSize++; /* verb */
         }
+
+        // Write the message
+        DataWriter messageWriter = new();
+        messageWriter.WriteByte(Magic);
+        messageWriter.WriteByte((byte)messageSize);
+        if (Verb == Verb.Ack)
+        {
+            messageWriter.WriteByte((byte)(Topic.Value | AckBit));
+        }
+        else
+        {
+            messageWriter.WriteByte(Topic.Value);
+            messageWriter.WriteByte(Verb.Value);
+        }
+        messageWriter.WriteBuffer(Data);
+
+        // Calculate the message checksum
+        var message = messageWriter.DetachBuffer();
+        uint checksum = 0;
+        foreach (byte b in message.ToArray())
+        {
+            checksum += b;
+        }
+
+        // Write the message with the checksum
+        DataWriter checksumWriter = new();
+        checksumWriter.WriteBuffer(message);
+        checksumWriter.WriteByte((byte)checksum);
+        return checksumWriter.DetachBuffer();
     }
 }

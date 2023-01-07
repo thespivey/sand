@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Find": {
+      "commandName": "Project",
+      "commandLineArgs": "find"
+    },
+    "Connect": {
+      "commandName": "Project",
+      "commandLineArgs": "connect BluetoothLE#BluetoothLEb8:31:b5:92:2f:5b-62:00:a1:20:7c:8c"
+    }
+  }
+}
