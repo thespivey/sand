@@ -1,6 +1,7 @@
-﻿using Windows.Storage.Streams;
+﻿using Sand.Model;
+using Windows.Storage.Streams;
 
-namespace Sand.Messages.Serialization;
+namespace Sand.Protocol.Serialization;
 
 internal class Reader
 {

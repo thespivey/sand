@@ -1,6 +1,8 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Runtime.Intrinsics.Arm;
+using System.Threading.Tasks;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Media.Playback;
@@ -55,7 +57,7 @@ internal class Device
     {
         MessageReceived?.Invoke(args.CharacteristicValue);
     }
-    public async void SendMessage(IBuffer message)
+    public async Task SendMessageAsync(IBuffer message)
     {
         var status = await _writeCharacteristic.WriteValueAsync(message, GattWriteOption.WriteWithResponse);
         if (status != GattCommunicationStatus.Success)

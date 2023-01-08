@@ -1,7 +1,8 @@
-﻿using System.Runtime.InteropServices.WindowsRuntime;
+﻿using System;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Storage.Streams;
 
-namespace Sand.Messages.Serialization;
+namespace Sand.Protocol.Serialization;
 
 internal class Frame
 {
@@ -9,15 +10,17 @@ internal class Frame
     private const byte AckBit = 0x80;
     private const byte TopicMask = 0x7F;
 
-    public Frame(Topic topic, Verb verb, IBuffer data)
+    public Frame(Topic topic, Verb verb, bool ack, IBuffer data)
     {
         Topic = topic;
         Verb = verb;
+        Ack = ack;
         Data = data;
     }
 
     public Topic Topic { get; }
     public Verb Verb { get; }
+    public bool Ack { get; }
     public IBuffer Data { get; }
 
     public static Frame Parse(IBuffer buffer)
@@ -35,7 +38,7 @@ internal class Frame
         var ackAndTopic = msg.ReadByte();
         bool ack = (ackAndTopic & AckBit) == AckBit;
         Topic topic = Topic.LookupTopic((byte)(ackAndTopic & TopicMask));
-        Verb verb = ack ? Verb.Ack : topic.LookupVerb(msg.ReadByte());
+        Verb verb = topic.LookupVerb(msg.ReadByte());
 
         var data = msg.ReadBuffer(msg.UnconsumedBufferLength - 1);
 
@@ -52,14 +55,14 @@ internal class Frame
             throw new Exception($"Invalid checksum. Actual={checksum} Expected={expectedChecksum}");
         }
 
-        return new Frame(topic, verb, data);
+        return new Frame(topic, verb, ack, data);
     }
 
     public IBuffer Serialize()
     {
         // Calculate the message size
         var messageSize = Data.Length + 4; /* magic, length, topic, checksum */
-        if (Verb != Verb.Ack)
+        if (Verb != Verb.None)
         {
             messageSize++; /* verb */
         }
@@ -68,13 +71,9 @@ internal class Frame
         DataWriter messageWriter = new();
         messageWriter.WriteByte(Magic);
         messageWriter.WriteByte((byte)messageSize);
-        if (Verb == Verb.Ack)
+        messageWriter.WriteByte((byte)(Topic.Value | (Ack ? AckBit : 0)));
+        if (Verb != Verb.None)
         {
-            messageWriter.WriteByte((byte)(Topic.Value | AckBit));
-        }
-        else
-        {
-            messageWriter.WriteByte(Topic.Value);
             messageWriter.WriteByte(Verb.Value);
         }
         messageWriter.WriteBuffer(Data);

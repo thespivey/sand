@@ -1,4 +1,6 @@
-﻿namespace Sand.Messages.Serialization;
+﻿using System.Collections.Generic;
+
+namespace Sand.Protocol.Serialization;
 
 internal class Topic
 {

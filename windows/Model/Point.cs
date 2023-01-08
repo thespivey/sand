@@ -1,4 +1,4 @@
-﻿namespace Sand.Messages;
+﻿namespace Sand.Model;
 
 struct Point
 {

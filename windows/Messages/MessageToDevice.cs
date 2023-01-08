@@ -1,30 +1,33 @@
-﻿using Sand.Messages.Serialization;
-using System.CommandLine;
-using System.Data;
+﻿using Sand.Protocol.Serialization;
+using Sand.Model;
 using Windows.Storage.Streams;
+using System.Collections.Generic;
+using System;
 
-namespace Sand.Messages;
+namespace Sand.Protocol;
 
 internal abstract class MessageToDevice
 {
     private readonly Topic _topic;
     private readonly Verb _verb;
+    private readonly bool _ack;
 
-    public MessageToDevice(Topic topic, Verb verb)
+    public MessageToDevice(Topic topic, Verb verb, bool ack = false)
     {
         _topic = topic;
         _verb = verb;
+        _ack = ack;
     }
 
-    protected virtual void Write(Writer data) { }
+    protected virtual void Write(Writer writer) { }
 
     public IBuffer Serialize()
     {
-        Writer data = new();
-        Write(data);
+        Writer writer = new();
+        Write(writer);
 
-        Frame messageFrame = new(_topic, _verb, data.DetachBuffer());
-        return messageFrame.Serialize();
+        Frame frame = new(_topic, _verb, _ack, writer.DetachBuffer());
+        return frame.Serialize();
     }
 }
 
@@ -34,42 +37,36 @@ internal class ConfirmConnectionData : MessageToDevice
       : base(Topic.AskNoConnectionData, Verb.ConfirmConnectionData)
     { }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write(true);
+        writer.Write(true);
     }
 
 }
 
-internal class AckToDevice : MessageToDevice
+internal class Ack : MessageToDevice
 {
-    public AckToDevice()
-        : base(Topic.AskNoConnectionData, Verb.Ack)
+    public Ack()
+        : base(Topic.AskNoConnectionData, Verb.None, ack: true)
     { }
 }
 
 internal class UpdateOtherLightControlStates : MessageToDevice
 {
-    private readonly bool _shift;
-    private readonly ushort _shiftTime;
-    private readonly bool _breath;
-    private readonly byte _brightness;
+    private readonly LightSettings _settings;
 
-    public UpdateOtherLightControlStates(bool shift, ushort shiftTime, bool breath, byte brightness)
+    public UpdateOtherLightControlStates(LightSettings settings)
         : base(Topic.SendsLightingAndColor, Verb.UpdateOtherLightControlStates)
     {
-        _shift = shift;
-        _shiftTime = shiftTime;
-        _breath = breath;
-        _brightness = brightness;
+        _settings = settings;
     }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write(_shift);
-        data.Write(_shiftTime);
-        data.Write(_breath);
-        data.Write(_brightness);
+        writer.Write(_settings.EnableColorShift);
+        writer.Write((ushort)Math.Round(_settings.ColorShiftInterval.TotalSeconds));
+        writer.Write(_settings.EnableBreath);
+        writer.Write((byte)Math.Round(_settings.Brightness * 100));
     }
 }
 
@@ -85,10 +82,10 @@ internal class StartDownloadingFile : MessageToDevice
         _pages = pages;
     }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write(_patternId);
-        data.Write(_pages);
+        writer.Write(_patternId);
+        writer.Write(_pages);
     }
 }
 
@@ -104,10 +101,10 @@ internal class EndDownloadingFile : MessageToDevice
         _pages = pages;
     }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write(_patternId);
-        data.Write(_pages);
+        writer.Write(_patternId);
+        writer.Write(_pages);
     }
 }
 
@@ -123,13 +120,13 @@ internal class ContentsOfFileSent : MessageToDevice
         _points = points;
     }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write((byte)_points.Count);
-        data.Write(_pageIndex);
+        writer.Write((byte)_points.Count);
+        writer.Write(_pageIndex);
         foreach (var point in _points)
         {
-            data.Write(point);
+            writer.Write(point);
         }
     }
 }
@@ -144,9 +141,9 @@ internal class SinglePlotDrawingOperation : MessageToDevice
         _patternId = patternId;
     }
 
-    protected override void Write(Writer data)
+    protected override void Write(Writer writer)
     {
-        data.Write(_patternId);
+        writer.Write(_patternId);
     }
 }
 

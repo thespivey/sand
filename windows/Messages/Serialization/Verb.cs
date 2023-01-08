@@ -1,8 +1,7 @@
-﻿namespace Sand.Messages.Serialization;
+﻿namespace Sand.Protocol.Serialization;
 
 internal class Verb
 {
-    public static readonly Verb Ack = new Verb(0, "Ack");
     public static readonly Verb AddFilesToFavorite = new(6, "AddFilesToFavorite");
     public static readonly Verb AddFilesToList = new(4, "AddFilesToList");
     public static readonly Verb AddList = new(1, "AddList");
@@ -78,7 +77,7 @@ internal class Verb
     public static readonly Verb UpdateOtherLightControlStates = new(4, "UpdateOtherLightControlStates");
     public static readonly Verb WaitForConnectionData = new(1, "WaitForConnectionData");
     public static readonly Verb Warning = new(3, "Warning");
-
+    public static readonly Verb None = new(0, "None");
     public Verb(byte value, string name)
     {
         Value = value;
