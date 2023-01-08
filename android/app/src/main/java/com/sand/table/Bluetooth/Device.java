@@ -70,8 +70,20 @@ public final class Device {
                 try {
                     Log.d(TAG, String.format("onConnectionStateChanged %d", newState));
                     if (newState == BluetoothProfile.STATE_CONNECTED) {
-                        gatt.discoverServices();
+                        gatt.requestMtu(256);
                     }
+                } catch (SecurityException e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        @Override
+        public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
+            _handler.post(() -> {
+                Log.d(TAG, String.format("mtuChange %d %d", mtu, status));
+                try {
+                    gatt.discoverServices();
                 } catch (SecurityException e) {
                     e.printStackTrace();
                 }
@@ -84,15 +96,25 @@ public final class Device {
                 try {
                     Log.d(TAG, String.format("onServicesDiscovered %d", status));
 
-                    BluetoothGattService service = gatt.getService(ServiceId);
-                    _readCharacteristic = service.getCharacteristic(ReadCharacteristicId);
-                    _writeCharacteristic = service.getCharacteristic(WriteCharacteristicId);
+                    if (_readCharacteristic == null || _writeCharacteristic == null) {
+                        BluetoothGattService service = gatt.getService(ServiceId);
+                        if (service == null) {
+                            gatt.discoverServices();
+                        } else {
+                            _readCharacteristic = service.getCharacteristic(ReadCharacteristicId);
+                            _writeCharacteristic = service.getCharacteristic(WriteCharacteristicId);
 
-                    // Enable indications from the read characteristic
-                    gatt.setCharacteristicNotification(_readCharacteristic, true);
-                    BluetoothGattDescriptor descriptor = _readCharacteristic.getDescriptor(ClientCharacteristicConfigurationDescriptorId);
-                    descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
-                    gatt.writeDescriptor(descriptor);
+                            if (_readCharacteristic == null || _writeCharacteristic == null) {
+                                gatt.discoverServices();
+                            } else {
+                                // Enable indications from the read characteristic
+                                gatt.setCharacteristicNotification(_readCharacteristic, true);
+                                BluetoothGattDescriptor descriptor = _readCharacteristic.getDescriptor(ClientCharacteristicConfigurationDescriptorId);
+                                descriptor.setValue(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE);
+                                gatt.writeDescriptor(descriptor);
+                            }
+                        }
+                    }
                 } catch (SecurityException e) {
                     e.printStackTrace();
                 }
@@ -110,5 +132,10 @@ public final class Device {
             }
         }
 
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            super.onCharacteristicWrite(gatt, characteristic, status);
+            Log.d(TAG, String.format("write complete %d", status));
+        }
     }
 }

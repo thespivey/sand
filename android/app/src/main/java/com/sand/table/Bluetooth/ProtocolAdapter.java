@@ -1,17 +1,15 @@
 package com.sand.table.Bluetooth;
 
-import android.util.Log;
-
-import com.sand.table.Protocol.Frame;
+import com.sand.table.Protocol.Messages.FromDevice.MessageFromDevice;
+import com.sand.table.Protocol.Messages.ToDevice.MessageToDevice;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 public class ProtocolAdapter {
     private final Device _device;
 
     public interface Listener {
-        void onMessage(Frame frame);
+        void onMessage(MessageFromDevice message);
     }
 
     public ProtocolAdapter(Device device, Listener listener) {
@@ -19,8 +17,8 @@ public class ProtocolAdapter {
         device.setListener(new DeviceListener(listener));
     }
 
-    public void sendMessage(Frame frame) {
-        _device.write(frame.serialize());
+    public void sendMessage(MessageToDevice message) {
+        _device.write(message.serialize());
     }
 
     private class DeviceListener implements Device.Listener {
@@ -41,9 +39,9 @@ public class ProtocolAdapter {
                 data = newData;
             }
 
-            Frame result;
+            MessageFromDevice result;
             try {
-                result = Frame.parse(data);
+                result = MessageFromDevice.parse(data);
             } catch (IOException e) {
                 e.printStackTrace();
                 return;

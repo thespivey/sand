@@ -1,4 +1,4 @@
-package com.sand.table.Protocol;
+package com.sand.table.Protocol.Serialization;
 
 import java.util.HashMap;
 import java.util.Map;

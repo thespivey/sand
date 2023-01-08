@@ -1,4 +1,4 @@
-package com.sand.table.Protocol;
+package com.sand.table.Protocol.Serialization;
 
 import android.util.Log;
 
@@ -40,6 +40,7 @@ public class Frame {
         byte checksum = computeChecksum(buffer);
         byte expectedChecksum = buffer[buffer.length - 1];
         if (checksum != expectedChecksum) {
+            Log.d("Device", String.format("BAD CHECKSUM: expected length %d, actual length %d", length, buffer.length));
             throw new IOException(String.format("Invalid checksum. Actual=%d Expected=%d", checksum & 0xff, expectedChecksum & 0xff));
         }
 
@@ -81,10 +82,10 @@ public class Frame {
     }
 
     private static byte computeChecksum(byte[] message) {
-        byte checksum = 0;
+        int checksum = 0;
         for (int i = 0; i < message.length - 1; i++) {
-            checksum = (byte) ((message[i] & 0xff) + (checksum & 0xff));
+            checksum = checksum + (message[i] & 0xff);
         }
-        return checksum;
+        return (byte)(checksum & 0xff);
     }
 }

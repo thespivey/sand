@@ -1,4 +1,4 @@
-package com.sand.table.Protocol;
+package com.sand.table.Protocol.Serialization;
 
 public class Verb {
         public static final Verb Ack = new Verb(0, "Ack");
