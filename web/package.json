@@ -1,0 +1,7 @@
+{
+  "type": "module",
+  "dependencies": {
+    "svg-path-properties": "^1.1.0",
+    "xml2js": "^0.4.23"
+  }
+}
