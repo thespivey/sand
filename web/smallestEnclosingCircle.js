@@ -29,7 +29,6 @@ function solve(points, n) {
 }
 
 function mec(points, n, boundary, b, callback) {
-    try {
     if (b === 3) return callback(calcCircle3(boundary[0], boundary[1], boundary[2]));
     else if (n === 1 && b === 0) return callback({x: points[0].x, y: points[0].y, r: 0});
     else if (n === 0 && b === 2) return callback(calcCircle2(boundary[0], boundary[1]));
@@ -46,9 +45,6 @@ function mec(points, n, boundary, b, callback) {
     }
 
     return localCircle;
-} catch (ex) {
-    console.log(ex.stack);
-}
 }
 
 function calcCircle3(p1, p2, p3) {
